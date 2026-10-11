@@ -1,0 +1,211 @@
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #e8eaee;
+  --text: #15181d;
+  --muted: #5d6573;
+  --border: #d3d7de;
+  --accent: #2f6fed;
+  --accent-text: #ffffff;
+  --ok: #1f9d55;
+  --warn: #c98a00;
+  --bad: #c2362f;
+  --pad: #e3e6eb;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418;
+    --surface: #1b1f25;
+    --surface-2: #252a32;
+    --text: #e8ebf0;
+    --muted: #98a1b0;
+    --border: #323844;
+    --accent: #5b8cff;
+    --accent-text: #0b1020;
+    --ok: #3ccf7f;
+    --warn: #f0b429;
+    --bad: #ff6b61;
+    --pad: #1f242c;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  gap: 8px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 6px;
+  min-height: 40px;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; padding: 0 16px; }
+button.icon { margin-left: auto; width: 40px; font-size: 18px; }
+button.active { background: var(--accent); color: var(--accent-text); }
+button.once { background: color-mix(in srgb, var(--accent) 35%, var(--surface)); border-color: var(--accent); }
+button.lock { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+
+.status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+.status[data-state="connecting"]::before { background: var(--warn); }
+.status[data-state="connected"]::before { background: var(--ok); }
+
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--warn);
+  color: #000;
+}
+
+.banner {
+  background: color-mix(in srgb, var(--bad) 15%, var(--surface));
+  border: 1px solid var(--bad);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.settings {
+  display: grid;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.settings label { display: grid; gap: 4px; color: var(--muted); }
+.settings label.check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.settings input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.history {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1px;
+  min-height: 38px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: pre;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: 17px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.history:empty::before {
+  content: "Typed keys appear here for 10 s";
+  margin-right: auto;
+  font: 13px system-ui, sans-serif;
+  color: var(--muted);
+}
+.history > span { flex: none; transition: opacity 0.6s; }
+.history > span.fading { opacity: 0.35; }
+.history > .chip {
+  margin: 0 3px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body:not([data-state="connected"]) main { opacity: 0.45; }
+
+.pad {
+  flex: 1;
+  min-height: 120px;
+  background: var(--pad);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  touch-action: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px;
+}
+.pad-hint { font-size: 12px; color: var(--muted); text-align: center; pointer-events: none; }
+
+.mouse-buttons {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr;
+  gap: 6px;
+}
+.mouse-buttons button { min-height: 48px; touch-action: none; }
+
+.keybar { display: grid; gap: 6px; }
+.keybar .row { display: flex; gap: 5px; }
+.keybar .row button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 2px;
+  font-size: clamp(11px, 3.5vw, 14px);
+  white-space: nowrap;
+  overflow: hidden;
+  touch-action: none;
+}
+.keybar .row.arrows button { font-size: 20px; }
+.keybar .row button.wide { flex: 1.4 1 0; }
+.keybar .row.fn { flex-wrap: wrap; }
+.keybar .row.fn button { flex: 1 0 calc(100% / 7 - 5px); }
+
+/* Focusable but invisible: receives the phone keyboard's input. */
+.typing {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  font-size: 16px; /* avoids iOS zoom-on-focus */
+  resize: none;
+}
+
+@media (min-width: 700px) {
+  body { max-width: 760px; margin: 0 auto; }
+}
