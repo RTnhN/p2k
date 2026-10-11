@@ -11,6 +11,53 @@ Raytac MDBT50Q-RX nRF52840 USB dongle.
 The computer needs no software or Bluetooth. It sees a standard USB keyboard, mouse and media-key
 device.
 
+## Security
+
+This project was built quickly with heavy AI assistance ("vibecoded"). That's a reason to be
+explicit about security. A device that types on your computer is a keystroke-injection tool by
+design, so the questions that matter are **who can drive it** and **who can read what goes
+through it**. The model below answers both, and each claim points to the code that enforces it,
+so you can check it yourself. Nobody has audited it independently.
+
+### What it protects against
+
+| Threat | Defense | Enforced in |
+|---|---|---|
+| A stranger in Bluetooth range connects and types on your computer | Both GATT characteristics require an encrypted, bonded link. The Nordic SoftDevice rejects reads and writes before the firmware ever sees them. | `input_chr.setPermission(...)` in `browser2keyboard.ino` |
+| A stranger pairs a new phone | Pairing is accepted only during a 60 s window opened by a physical button press, or at first power-up when nothing is paired yet. Each window admits one device. Requests outside it are dropped before any keys are exchanged. | `ble_event_cb` → `BLE_GAP_EVT_SEC_PARAMS_REQUEST` |
+| An eavesdropper records your keystrokes, including passwords | Only LE Secure Connections (ECDH) pairing is accepted. A passive sniffer can't derive the link key, even if it recorded the pairing. Legacy pairing is refused, and old legacy bonds are dropped on reconnect. | `ble_event_cb` (`peer->lesc`, `st->lesc`), `secured_cb` |
+| A pairing slips through anyway | At pairing completion the firmware checks the link was the one it approved and used LESC. Otherwise it deletes the new bond and disconnects. | `ble_event_cb` → `BLE_GAP_EVT_AUTH_STATUS` |
+| Keys stuck down after a dropped connection | Packets carry full key state, not press/release events, and the dongle releases everything on disconnect. | `release_all()` |
+| Malformed or malicious packets | Fixed-size packets with length checks. Anything unparseable is dropped. | `input_write_cb`, `pkt_len()` |
+| Script injection into the web page | No third-party code, no `innerHTML` or `eval`, and a strict Content Security Policy: `default-src 'none'; script-src 'self'`. | `web/index.html` |
+| Typed text lingering on the phone | The hidden typing buffer is wiped after 10 s idle. The on-screen history can be turned off in ⚙. | `web/keyboard.js`, `web/app.js` |
+
+### What it does *not* protect against
+
+- **A paired phone is fully trusted.** It can type anything the logged-in user can: open a
+  terminal, run commands. Only pair devices you control. Hold the dongle button 5 s to revoke
+  every bond.
+- **An active man-in-the-middle during pairing.** The dongle has no screen or keypad, so it can
+  only do "Just Works" pairing, which can't authenticate the other side. The short,
+  button-gated window narrows the exposure. Pair somewhere an attacker is unlikely to be actively
+  waiting.
+- **The website's host.** Whoever controls the origin serving the page controls what it sends
+  once you connect. Use the official site (https://zachstrout.com/p2k), self-host it, or run it
+  from `localhost`.
+- **Physical access.** Anyone who can plug in the dongle can reflash it over UF2, as with any
+  UF2 device.
+- **Shoulder surfing.** The typing history shows recent text for 10 s. Turn it off before typing
+  passwords.
+
+### Checking it yourself
+
+The dongle has a USB serial port (`screen /dev/ttyACM0 115200`) that logs every connection,
+pairing request, acceptance or rejection with a reason, and disconnect. It never logs
+keystrokes. Try pairing a second phone without pressing the button: the log shows
+`rejecting link: pairing window closed`.
+
+Found a problem? Please open an issue.
+
 ## Firmware (`firmware/`)
 
 Arduino sketch on the Adafruit nRF52 core (Bluefruit BLE + TinyUSB). The core targets the
@@ -52,25 +99,6 @@ This produces two files:
 A new device can only pair while the pairing window is open. The window opens when you press the
 button, and also for 60 s at power-up if nothing is paired yet. Each window admits one device.
 Paired devices reconnect any time without the button.
-
-### Security model
-
-- **Encryption:** every input and status access needs an encrypted, bonded link, and the
-  SoftDevice enforces this. Unpaired devices can see the dongle advertise but can't send anything.
-- **LE Secure Connections only.** Pairing uses LESC "Just Works" (ECDH). Someone who records the
-  pairing over the air can't recover the keys, so a passive sniffer can't read what you type.
-  Legacy pairing is refused, and so are existing legacy bonds. Just Works can't stop an active
-  man-in-the-middle *during* pairing, because the dongle has no display or keypad. The short,
-  button-gated window is the defense: pair somewhere you'd notice an attacker.
-- **What a paired device can do:** it can type anything on the computer. Only pair phones you trust,
-  and hold the button 5 s to revoke all of them.
-- **The website** loads no third-party code and runs under a strict Content Security Policy. The
-  browser only grants Bluetooth access to the site you connected from, so host it on an origin
-  you control.
-- **On-screen history:** the typing history shows what you typed for 10 s. Turn it off in ⚙
-  before typing passwords. The hidden typing buffer is wiped after 10 s idle.
-- **USB:** the dongle also exposes a debug serial port that logs connection and pairing events
-  (never keystrokes). Anyone with physical USB access can reflash it, as with any UF2 device.
 
 ## Website (`web/`)
 
