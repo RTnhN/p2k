@@ -14,8 +14,9 @@ device.
 ## Security
 
 A device that types on your computer is a keystroke-injection tool by design, so the questions
-that matter are **who can drive it** and **who can read what goes through it**. The model below answers both, and each claim points to the code that enforces it,
-so you can check it yourself. Nobody has audited it independently.
+that matter are **who can drive it** and **who can read what goes through it**. The model below
+answers both, and each claim points to the code that enforces it, so you can check it yourself.
+Nobody has audited it independently.
 
 ### What it protects against
 
