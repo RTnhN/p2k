@@ -110,8 +110,11 @@ $('connect').addEventListener('click', async () => {
   try {
     await link.connect();
   } catch (err) {
-    if (err.name !== 'NotFoundError') {  // NotFoundError = chooser cancelled
-      $('status').textContent = `Error: ${err.message}`;
+    if (err?.name !== 'NotFoundError') {  // NotFoundError = chooser cancelled
+      // Some browsers (e.g. Bluefy) reject with strings or plain objects.
+      const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'unknown';
+      $('status').textContent = `Error: ${msg}`;
+      console.warn('connect failed', err);
     }
   }
 });
