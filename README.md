@@ -133,6 +133,64 @@ phone over USB, you can instead run `adb reverse tcp:8000 tcp:8000` and open
 - On desktop, a physical keyboard is forwarded while the page has focus. Browser-reserved
   shortcuts like Ctrl+W can't be captured.
 
+## Troubleshooting
+
+Most problems are easiest to diagnose from the dongle's log. Plug the dongle into a computer and
+run `screen /dev/ttyACM0 115200` (on Linux). It logs connections, pairing requests,
+acceptances and rejections with a reason, and disconnects with an HCI reason code.
+
+**The dongle doesn't show up as a keyboard after flashing.**
+Check `INFO_UF2.TXT` on the `MDBT50QBOOT` drive. If it says `SoftDevice: not found` (common after
+running a Zephyr build), flash `browser2keyboard-sd.uf2` once. After that the normal `.uf2` works.
+
+**The page says it needs Web Bluetooth.**
+The banner names the cause:
+- Firefox and Safari don't support Web Bluetooth.
+- On iOS, use the Bluefy browser.
+- Chrome on Linux needs `chrome://flags/#enable-experimental-web-platform-features` enabled.
+- The page must be served over HTTPS or from `localhost`. A plain `http://<ip>` address won't work.
+
+**Desktop Linux: stuck on "Connecting…".**
+BlueZ may have pairing turned off, so the encrypted characteristics never unlock. Run:
+
+```sh
+bluetoothctl pairable on
+bluetoothctl pair <dongle address>     # with the dongle's pairing window open
+bluetoothctl trust <dongle address>
+```
+
+Also make sure the adapter is on: `bluetoothctl power on`.
+
+**The iOS pairing dialog appears and disappears immediately.**
+The dongle's pairing window was closed, so it dropped the link (log:
+`rejecting link: pairing window closed`). Short-press the button so the LED blinks fast, then
+connect within 60 s.
+
+**Connecting fails after clearing bonds or re-flashing ("Error: …", or the phone disconnects
+right away).**
+The phone still has the old key, but the dongle has forgotten it. In the log, the phone
+disconnects (`reason 0x13`) without ever sending a pairing request. To fix it:
+1. On the phone, forget the device. On iOS that's Settings → Bluetooth → ⓘ next to B2K Dongle →
+   Forget This Device.
+2. Fully close and reopen the browser.
+3. Pair again with the window open.
+
+**Pairing is refused with `peer lacks LE Secure Connections` or `bond uses legacy pairing`.**
+The dongle only accepts LE Secure Connections. Forget the device on the phone and pair again.
+If that still fails, the phone or OS is too old.
+
+**The connection drops repeatedly.**
+The page retries a dropped link up to 5 times, then asks you to tap Connect. The dongle accepts
+only one device at a time, so check that another phone or computer isn't already connected.
+
+**The wrong characters appear on the computer.**
+Typed text is converted assuming the computer uses a **US keyboard layout**. Symbols land on
+different keys with other layouts.
+
+**Entering the bootloader without the button.**
+Open the dongle's serial port at 1200 baud, e.g. `stty -F /dev/ttyACM0 1200`. The dongle reboots
+into the `MDBT50QBOOT` drive.
+
 ## Protocol
 
 One custom GATT service. Both characteristics require an encrypted (bonded) link.
