@@ -16,6 +16,11 @@
 #include "utility/bonding.h"
 #include "protocol.h"
 
+// TinyUSB's handler for USB power events, with its event values
+// (see dcd_nrf5x.c).
+extern "C" void tusb_hal_nrf_power_event(uint32_t event);
+enum { USB_EVT_DETECTED = 0, USB_EVT_READY = 2 };
+
 using namespace Adafruit_LittleFS_Namespace;
 
 #define DEVICE_NAME          "B2K Dongle"
@@ -325,6 +330,55 @@ static void update_button(void) {
 }
 
 //--------------------------------------------------------------------+
+// USB bring-up
+//
+// The core brings USB up from its own task. If the SoftDevice is enabled
+// before that finishes (likely on a cold plug-in), the USB power events are
+// lost and the pull-up never turns on: the host sees no device at all while
+// BLE keeps working. So wait for USB before starting BLE, and keep a watchdog
+// that replays the power events if it ever ends up stuck.
+//--------------------------------------------------------------------+
+static bool usb_vbus_present(void) {
+  uint32_t reg = 0;
+  uint8_t sd_on = 0;
+  sd_softdevice_is_enabled(&sd_on);
+  if (sd_on) sd_power_usbregstatus_get(&reg);
+  else reg = NRF_POWER->USBREGSTATUS;
+  return reg & POWER_USBREGSTATUS_VBUSDETECT_Msk;
+}
+
+static bool usb_output_ready(void) {
+  uint32_t reg = 0;
+  sd_power_usbregstatus_get(&reg);
+  return reg & POWER_USBREGSTATUS_OUTPUTRDY_Msk;
+}
+
+static void wait_for_usb_pullup(uint32_t timeout_ms) {
+  uint32_t start = millis();
+  while (usb_vbus_present() && !NRF_USBD->USBPULLUP && millis() - start < timeout_ms) delay(5);
+}
+
+static void usb_watchdog(void) {
+  static uint32_t stuck_since = 0;
+  if (!usb_vbus_present() || NRF_USBD->USBPULLUP) {
+    stuck_since = 0;
+    return;
+  }
+  if (stuck_since == 0) {
+    stuck_since = millis() | 1;
+    return;
+  }
+  if (millis() - stuck_since < 2000) return;
+
+  stuck_since = 0;
+  LOG("USB powered but not attached; restarting USB");
+  tusb_hal_nrf_power_event(USB_EVT_DETECTED);
+  // READY busy-waits for the peripheral, so only send it once the
+  // regulator is up and the peripheral is enabled.
+  if (NRF_USBD->ENABLE && usb_output_ready()) tusb_hal_nrf_power_event(USB_EVT_READY);
+}
+
+//--------------------------------------------------------------------+
 // Setup / loop
 //--------------------------------------------------------------------+
 void setup() {
@@ -351,6 +405,10 @@ void setup() {
   }
 
   Serial.begin(115200);
+
+  // Let USB finish coming up before the SoftDevice takes over the POWER
+  // peripheral (bounded so the dongle still starts on a charger).
+  wait_for_usb_pullup(1500);
 
   // BLE
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
@@ -398,6 +456,7 @@ void setup() {
 }
 
 void loop() {
+  usb_watchdog();
   update_button();
   update_led();
 

@@ -143,6 +143,13 @@ acceptances and rejections with a reason, and disconnects with an HCI reason cod
 Check `INFO_UF2.TXT` on the `MDBT50QBOOT` drive. If it says `SoftDevice: not found` (common after
 running a Zephyr build), flash `browser2keyboard-sd.uf2` once. After that the normal `.uf2` works.
 
+**Connected (LED solid, page says Connected) but nothing types or moves.**
+The dongle isn't attached to the computer over USB, even though BLE is fine. Check that it shows
+up as a keyboard (`lsusb` should list `B2K Keyboard + Mouse`). Older firmware could miss USB
+attach on a cold plug-in. Current firmware waits for USB at boot and re-attaches if it stays
+detached for 2 s (log: `USB powered but not attached; restarting USB`). If it still doesn't
+appear, re-flash the latest `.uf2`, or unplug the dongle and plug it back in.
+
 **The page says it needs Web Bluetooth.**
 The banner names the cause:
 - Firefox and Safari don't support Web Bluetooth.
